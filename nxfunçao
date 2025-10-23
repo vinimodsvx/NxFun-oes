@@ -1,5 +1,5 @@
 -- Load UI Library
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/six999sx/Nexhubsource/refs/heads/main/source"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/vinimodsvx/UilibraryX/refs/heads/main/Uinx"))()
 
 -- Executar Notfly automaticamente
 local function loadNotfly()
