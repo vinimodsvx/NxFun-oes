@@ -4,7 +4,7 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/vinim
 -- Executar Notfly automaticamente
 local function loadNotfly()
     local success, err = pcall(function()
-        local notflyUrl = "https://raw.githubusercontent.com/six999sx/Notfly/refs/heads/main/Notfly"
+        local notflyUrl = "https://raw.githubusercontent.com/vinimodsvx/NotflyNx/refs/heads/main/NotflyNx"
         local scriptContent = game:HttpGet(notflyUrl, true)
         loadstring(scriptContent)()
     end)
@@ -298,7 +298,7 @@ local MainTab = Window:Tab({Title = "Main", Icon = "house"}) do
         Value = true,
         Callback = function(state)
             if state then
-                local url = "https://raw.githubusercontent.com/six999sx/Desync/refs/heads/main/Desync"
+                local url = "https://raw.githubusercontent.com/vinimodsvx/FloatBase/refs/heads/main/FloatBase"
                 local success, err = pcall(function()
                     local scriptContent = game:HttpGet(url, true)
                     loadstring(scriptContent)()
@@ -1296,7 +1296,7 @@ local PlayerTab = Window:Tab({Title = "Player", Icon = "user"}) do
         Value = true, 
         Callback = function(state)
             if state then
-                local url = "https://raw.githubusercontent.com/six999sx/Float-Base/refs/heads/main/Floatbase"
+                local url = "https://raw.githubusercontent.com/vinimodsvx/FloatBase/refs/heads/main/FloatBase"
                 local success, err = pcall(function()
                     loadstring(game:HttpGet(url, true))()
                 end)
@@ -1384,7 +1384,7 @@ infiniteJumpToggle = PlayerTab:Toggle({
         Value = true,
         Callback = function(state)
             if state then
-                local url = "https://raw.githubusercontent.com/six999sx/3rd-flor/refs/heads/main/3rdflor"
+                local url = "https://raw.githubusercontent.com/vinimodsvx/3DFloor/refs/heads/main/3dFloor"
                 
                 local success, err = pcall(function()
                     loadstring(game:HttpGet(url, true))()
