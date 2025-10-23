@@ -1,0 +1,1938 @@
+-- Load UI Library
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/six999sx/Nexhubsource/refs/heads/main/source"))()
+
+-- Executar Notfly automaticamente
+local function loadNotfly()
+    local success, err = pcall(function()
+        local notflyUrl = "https://raw.githubusercontent.com/six999sx/Notfly/refs/heads/main/Notfly"
+        local scriptContent = game:HttpGet(notflyUrl, true)
+        loadstring(scriptContent)()
+    end)
+    
+    if success then
+        print("✅ Notfly carregado com sucesso!")
+    else
+        warn("❌ Erro ao carregar Notfly:", err)
+    end
+end
+
+-- Carregar Notfly após um breve delay
+task.spawn(function()
+    wait(1) -- Esperar 1 segundo para a UI carregar primeiro
+    loadNotfly()
+end)
+
+-- Create Main Window
+local Window = Library:Window({
+    Title = "Nex Hub - Steal a Brainrot",
+    Desc = "Nex Hub on Top",
+    Icon = 105059922903197,
+    Theme = "Dark",
+    Config = {
+        Keybind = Enum.KeyCode.LeftControl,
+        Size = UDim2.new(0, 500, 0, 400)
+    },
+    CloseUIButton = {
+        Enabled = true,
+        Text = "Nex Hub"
+    }
+})
+
+-- Sistema de Keybinds Global com Salvamento
+local KeybindSystem = {
+    Keybinds = {},
+    Connections = {},
+    SaveFile = "Ashlabs_Keybinds.txt"
+}
+
+-- Função para salvar keybinds no arquivo
+function KeybindSystem:SaveKeybinds()
+    local saveData = {}
+    for name, keybindData in pairs(self.Keybinds) do
+        saveData[name] = keybindData.key
+    end
+    
+    local jsonData = game:GetService("HttpService"):JSONEncode(saveData)
+    
+    local success, err = pcall(function()
+        writefile(self.SaveFile, jsonData)
+    end)
+    
+    if success then
+        print("Keybinds salvos com sucesso!")
+    else
+        warn("Erro ao salvar keybinds:", err)
+    end
+end
+
+-- Função para carregar keybinds do arquivo
+function KeybindSystem:LoadKeybinds()
+    local success, fileData = pcall(function()
+        return readfile(self.SaveFile)
+    end)
+    
+    if success and fileData then
+        local success2, savedData = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(fileData)
+        end)
+        
+        if success2 and savedData then
+            return savedData
+        end
+    end
+    return nil
+end
+
+-- Função para registrar um keybind
+function KeybindSystem:RegisterKeybind(name, defaultKey, callback)
+    local savedKeybinds = self:LoadKeybinds()
+    local actualKey = defaultKey
+    
+    if savedKeybinds and savedKeybinds[name] then
+        actualKey = savedKeybinds[name]
+        print("Keybind carregado: " .. name .. " = " .. actualKey)
+    end
+    
+    self.Keybinds[name] = {
+        key = actualKey,
+        callback = callback,
+        enabled = true
+    }
+    return self.Keybinds[name]
+end
+
+-- Função para atualizar um keybind
+function KeybindSystem:UpdateKeybind(name, newKey)
+    if self.Keybinds[name] then
+        self.Keybinds[name].key = newKey
+        self:SaveKeybinds()
+    end
+end
+
+-- Sistema de input
+local UserInputService = game:GetService("UserInputService")
+
+-- Conexão principal para detectar keybinds
+KeybindSystem.Connections.main = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        local key = input.KeyCode.Name
+        
+        for name, keybindData in pairs(KeybindSystem.Keybinds) do
+            if keybindData.enabled and keybindData.key == key then
+                keybindData.callback()
+                break
+            end
+        end
+    end
+end)
+
+-- Variáveis para os toggles
+local aimbotToggle, espToggle, brainrotEspToggle, timerEspToggle, desyncToggle, floatToggle, travarToggle, antiBeeToggle, antiLagToggle, infiniteJumpToggle
+
+-- Tab Main
+local MainTab = Window:Tab({Title = "Main", Icon = "house"}) do
+    MainTab:Section({Title = "Main"})
+
+    -- Aimbot Beta
+    aimbotToggle = MainTab:Toggle({
+        Title = "Aimbot Beta",
+        Value = false,
+        Callback = function(state)
+            print("Aimbot state:", state)
+            
+            local player = game:GetService("Players").LocalPlayer
+            local replicated_storage = game:GetService("ReplicatedStorage")
+            local players = game:GetService("Players")
+            local run_service = game:GetService("RunService")
+
+            local tool_configs = {
+                web_slinger = {
+                    tool_name = "Web Slinger",
+                    remote_names = {
+                        "RE/UseItem",
+                        "UseItem", 
+                        "UseTool"
+                    },
+                    max_distance = 100
+                },
+                laser_cape = {
+                    tool_name = "Laser Cape", 
+                    remote_names = {
+                        "RE/UseItem",
+                        "UseItem",
+                        "UseTool"
+                    },
+                    max_distance = 50
+                }
+            }
+
+            local auto_enabled = false
+            local auto_connection = nil
+            local current_tool_equipped = nil
+            local current_auto_type = nil
+
+            local function detect_current_tool()
+                local char = player.Character
+                if not char then return nil end
+                
+                local current_tool = char:FindFirstChildOfClass('Tool')
+                if not current_tool then return nil end
+                
+                for tool_type, config in pairs(tool_configs) do
+                    if current_tool.Name == config.tool_name then
+                        return tool_type, current_tool
+                    end
+                end
+                
+                return nil, current_tool
+            end
+
+            local function find_remote(tool_type)
+                local config = tool_configs[tool_type]
+                if not config then return nil end
+                
+                for _, remote_name in ipairs(config.remote_names) do
+                    local remote = replicated_storage:FindFirstChild('Packages') and replicated_storage.Packages:FindFirstChild('Net') and replicated_storage.Packages.Net:FindFirstChild(remote_name)
+                    if not remote then
+                        remote = replicated_storage:FindFirstChild('Events') and replicated_storage.Events:FindFirstChild(remote_name)
+                    end
+                    if not remote then
+                        remote = replicated_storage:FindFirstChild('Remotes') and replicated_storage.Remotes:FindFirstChild(remote_name)
+                    end
+                    if remote then
+                        return remote
+                    end
+                end
+                
+                return nil
+            end
+
+            local function use_tool()
+                if not current_auto_type then return end
+                
+                local char = player.Character
+                local hum = char and char:FindFirstChildOfClass('Humanoid')
+                local remote = find_remote(current_auto_type)
+
+                if not (hum and hum.Health > 0 and remote and current_tool_equipped) then
+                    return
+                end
+
+                local my_hrp = char:FindFirstChild('HumanoidRootPart')
+                if my_hrp then
+                    local config = tool_configs[current_auto_type]
+                    local max_distance = config.max_distance
+                    local closest_dist, target_part = max_distance, nil
+                    
+                    for _, p in ipairs(players:GetPlayers()) do
+                        if p ~= player and p.Character then
+                            local target_hum = p.Character:FindFirstChildOfClass('Humanoid')
+                            local target_torso = p.Character:FindFirstChild('UpperTorso') or p.Character:FindFirstChild('Torso')
+                            local target_hrp = p.Character:FindFirstChild('HumanoidRootPart')
+                            local target_head = p.Character:FindFirstChild('Head')
+                            
+                            if target_hum and target_hum.Health > 0 and target_hrp then
+                                local dist = (my_hrp.Position - target_hrp.Position).Magnitude
+                                if dist < closest_dist then
+                                    closest_dist = dist
+                                    target_part = target_torso or target_hrp or target_head
+                                end
+                            end
+                        end
+                    end
+                    
+                    if target_part then
+                        remote:FireServer(target_part.Position, target_part)
+                    end
+                end
+            end
+
+            local function do_auto_tool_cycle()
+                if not auto_enabled then return end
+                
+                if not current_auto_type then
+                    local detected_type, tool = detect_current_tool()
+                    if detected_type then
+                        current_auto_type = detected_type
+                        current_tool_equipped = tool
+                    else
+                        return
+                    end
+                end
+                
+                use_tool()
+            end
+
+            auto_enabled = state
+            
+            if state then
+                if auto_connection then
+                    auto_connection:Disconnect()
+                end
+                
+                local detected_type, tool = detect_current_tool()
+                if detected_type then
+                    current_auto_type = detected_type
+                    current_tool_equipped = tool
+                    print("🟢 Auto Tool LIGADO - " .. tool_configs[detected_type].tool_name)
+                else
+                    print("⚠️ Auto Tool LIGADO - Equipe Web Slinger ou Laser Cape")
+                end
+                
+                auto_connection = run_service.Heartbeat:Connect(do_auto_tool_cycle)
+            else
+                if auto_connection then
+                    auto_connection:Disconnect()
+                    auto_connection = nil
+                end
+                print("🔴 Auto Tool DESLIGADO")
+            end
+        end
+    })
+
+    -- Desync
+    desyncToggle = MainTab:Toggle({
+        Title = "Desync",
+        Value = true,
+        Callback = function(state)
+            if state then
+                local url = "https://raw.githubusercontent.com/six999sx/Desync/refs/heads/main/Desync"
+                local success, err = pcall(function()
+                    local scriptContent = game:HttpGet(url, true)
+                    loadstring(scriptContent)()
+                    
+                    wait(2)
+                    pcall(function()
+                        if DesyncMain then
+                            DesyncMain.Visible = true
+                        end
+                    end)
+                end)
+                if not success then
+                    warn("Erro ao injetar a script Desync:", err)
+                end
+            end
+        end
+    })
+
+    -- Travar Players
+    travarToggle = MainTab:Toggle({
+        Title = "Travar Players", 
+        Value = true,
+        Callback = function(state)
+            if state then
+                local url = "https://raw.githubusercontent.com/six999sx/six9fpsss/refs/heads/main/Nxreducefps.lua"
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet(url, true))()
+                end)
+                if not success then
+                    warn("Erro ao injetar a script:", err)
+                end
+            end
+        end
+    })
+
+    MainTab:Toggle({
+        Title = "Toggle Me", 
+        Value = false, 
+        Callback = function(state)
+            print("Toggle state:", state)
+        end
+    })
+
+    MainTab:Toggle({
+        Title = "Toggle Me", 
+        Value = false, 
+        Callback = function(state)
+            print("Toggle state:", state)
+        end
+    })
+end
+
+-- Tab Visual
+local VisualTab = Window:Tab({Title = "Visual", Icon = "eye"}) do
+    VisualTab:Section({Title = "Visual"})
+
+    -- ESP Inimigos
+    espToggle = VisualTab:Toggle({
+        Title = "Esp Inimigos",
+        Value = true,
+        Callback = function(state)
+            _G.IsEspPlayerEnabled = state
+
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local CoreGui = game:GetService("CoreGui")
+            local Camera = game:GetService("Workspace").CurrentCamera
+            local localPlayer = Players.LocalPlayer
+
+            local espSettings = {
+                enabled = state,
+                maxDistance = 2000,
+                forceMaterial = true,
+                forceTransparency = 0.5,
+                outlineEnabled = true,
+                glowEnabled = true,
+                nameTagEnabled = true,
+                nameTagSize = 14,
+                nameTagColor = Color3.fromRGB(0, 255, 255),
+                checkInterval = 0.5,
+                playerColor = Color3.fromRGB(0, 255, 255),
+            }
+
+            local espData = {}
+            local playerConnections = {}
+            local nameTags = {}
+            local monitorThread = nil
+
+            local function forcePartVisibility(part)
+                if not part then return end
+                part.LocalTransparencyModifier = 0
+                part.CastShadow = true
+                if espSettings.forceMaterial then
+                    part.Material = Enum.Material.ForceField
+                    part.Transparency = espSettings.forceTransparency
+                end
+            end
+
+            local function updateNameTag(player, character)
+                if not espSettings.nameTagEnabled or not character or not character:FindFirstChild("HumanoidRootPart") then return end
+                local humanoidRootPart = character.HumanoidRootPart
+                if nameTags[player] then nameTags[player]:Destroy() nameTags[player] = nil end
+
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "FixedNameESP"
+                billboard.Adornee = humanoidRootPart
+                billboard.Size = UDim2.new(0, 200, 0, 50)
+                billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+                billboard.AlwaysOnTop = true
+                billboard.MaxDistance = espSettings.maxDistance
+                billboard.Parent = CoreGui
+
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1, 0, 1, 0)
+                nameLabel.Text = player.Name
+                nameLabel.TextColor3 = espSettings.nameTagColor
+                nameLabel.TextSize = espSettings.nameTagSize
+                nameLabel.Font = Enum.Font.SourceSansBold
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.TextStrokeTransparency = 0.5
+                nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                nameLabel.Parent = billboard
+
+                nameTags[player] = billboard
+
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    humanoid.Died:Connect(function()
+                        if nameTags[player] then
+                            nameTags[player]:Destroy()
+                            nameTags[player] = nil
+                        end
+                    end)
+                end
+            end
+
+            local function cleanPlayerEsp(player)
+                if espData[player] then
+                    for _, conn in pairs(espData[player].connections) do
+                        conn:Disconnect()
+                    end
+                    if espData[player].highlight then espData[player].highlight:Destroy() end
+                    espData[player] = nil
+                end
+                if nameTags[player] then
+                    nameTags[player]:Destroy()
+                    nameTags[player] = nil
+                end
+            end
+
+            local function applyEsp(player, character)
+                if not character then return end
+                cleanPlayerEsp(player)
+
+                espData[player] = {parts = {}, connections = {}}
+
+                local function processPart(part)
+                    if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("Part") then
+                        forcePartVisibility(part)
+                        local conn = part:GetPropertyChangedSignal("Transparency"):Connect(function()
+                            forcePartVisibility(part)
+                        end)
+                        table.insert(espData[player].connections, conn)
+                    end
+                end
+
+                for _, part in pairs(character:GetDescendants()) do
+                    processPart(part)
+                end
+
+                local descendantAddedConn = character.DescendantAdded:Connect(function(part)
+                    processPart(part)
+                end)
+                table.insert(espData[player].connections, descendantAddedConn)
+
+                if espSettings.glowEnabled then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "UniversalESPHighlight"
+                    highlight.Adornee = character
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlight.FillColor = espSettings.playerColor
+                    highlight.OutlineColor = espSettings.playerColor
+                    highlight.FillTransparency = 0.3
+                    highlight.Parent = CoreGui
+                    espData[player].highlight = highlight
+                end
+
+                if espSettings.nameTagEnabled then
+                    updateNameTag(player, character)
+                end
+
+                local humanoid = character:FindFirstChild("Humanoid")
+                if humanoid then
+                    local diedConn = humanoid.Died:Connect(function()
+                        if nameTags[player] then
+                            nameTags[player]:Destroy()
+                            nameTags[player] = nil
+                        end
+                        delay(3, function()
+                            if player.Character and _G.IsEspPlayerEnabled then
+                                applyEsp(player, player.Character)
+                            end
+                        end)
+                    end)
+                    table.insert(espData[player].connections, diedConn)
+                end
+            end
+
+            local function removeEsp(player)
+                cleanPlayerEsp(player)
+                if playerConnections[player] then
+                    for _, conn in pairs(playerConnections[player]) do
+                        conn:Disconnect()
+                    end
+                    playerConnections[player] = nil
+                end
+            end
+
+            local function monitorAllPlayers()
+                while _G.IsEspPlayerEnabled do
+                    wait(espSettings.checkInterval)
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= localPlayer then
+                            local character = player.Character
+                            if character and character:FindFirstChild("HumanoidRootPart") then
+                                local distance = 0
+                                if localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                    distance = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+                                end
+                                if distance <= espSettings.maxDistance or distance == 0 then
+                                    if not espData[player] or espData[player].character ~= character then
+                                        applyEsp(player, character)
+                                        espData[player].character = character
+                                    end
+                                else
+                                    removeEsp(player)
+                                end
+                            else
+                                removeEsp(player)
+                            end
+                        end
+                    end
+                end
+                for player, _ in pairs(espData) do
+                    removeEsp(player)
+                end
+            end
+
+            local function setupAutoReconnect()
+                for player, connections in pairs(playerConnections) do
+                    for _, conn in pairs(connections) do
+                        conn:Disconnect()
+                    end
+                end
+                playerConnections = {}
+
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= localPlayer then
+                        playerConnections[player] = {}
+                        local charAddedConn = player.CharacterAdded:Connect(function(character)
+                            if _G.IsEspPlayerEnabled then
+                                wait(2)
+                                applyEsp(player, character)
+                            end
+                        end)
+                        table.insert(playerConnections[player], charAddedConn)
+                        local charRemovingConn = player.CharacterRemoving:Connect(function()
+                            cleanPlayerEsp(player)
+                        end)
+                        table.insert(playerConnections[player], charRemovingConn)
+                        if player.Character and _G.IsEspPlayerEnabled then
+                            applyEsp(player, player.Character)
+                        end
+                    end
+                end
+
+                Players.PlayerAdded:Connect(function(player)
+                    if player ~= localPlayer then
+                        playerConnections[player] = {}
+                        local charAddedConn = player.CharacterAdded:Connect(function(character)
+                            if _G.IsEspPlayerEnabled then
+                                wait(2)
+                                applyEsp(player, character)
+                            end
+                        end)
+                        table.insert(playerConnections[player], charAddedConn)
+                        local charRemovingConn = player.CharacterRemoving:Connect(function()
+                            cleanPlayerEsp(player)
+                        end)
+                        table.insert(playerConnections[player], charRemovingConn)
+                    end
+                end)
+            end
+
+            if state then
+                setupAutoReconnect()
+                monitorThread = task.spawn(monitorAllPlayers)
+                print("ESP Inimigos Ativado!")
+            else
+                _G.IsEspPlayerEnabled = false
+                for _, player in pairs(Players:GetPlayers()) do
+                    removeEsp(player)
+                end
+                for player, connections in pairs(playerConnections) do
+                    for _, conn in pairs(connections) do
+                        conn:Disconnect()
+                    end
+                end
+                playerConnections = {}
+                monitorThread = nil
+                print("ESP Inimigos Desativado!")
+            end
+        end
+    })
+
+    -- ESP Brainrot Corrigido
+    brainrotEspToggle = VisualTab:Toggle({
+        Title = "Esp Melhor Brainrot",
+        Value = true,
+        Callback = function(state)
+            _G.IsBrainrotEspEnabled = state
+
+            local workspace = game:GetService("Workspace")
+            local Players = game:GetService("Players")
+            local localPlayer = Players.LocalPlayer
+
+            local function getMyPlot()
+                local plots = workspace:FindFirstChild("Plots")
+                if not plots then return nil end
+                
+                for _, plot in ipairs(plots:GetChildren()) do
+                    local plotSign = plot:FindFirstChild("PlotSign")
+                    if plotSign then
+                        local yourBase = plotSign:FindFirstChild("YourBase")
+                        if yourBase and yourBase.Enabled then
+                            return plot
+                        end
+                    end
+                end
+                return nil
+            end
+
+            local function parseValue(str)
+                if not str then return 0 end
+                local cleanStr = string.gsub(str, "/s", "")
+                local num, suffix = string.match(cleanStr, "[$]?[%s]*([%d%.]+)[%s]*([MKBT]?)")
+                if not num then return 0 end
+                num = tonumber(num)
+                if not num then return 0 end
+                if suffix == "K" then num = num * 1e3
+                elseif suffix == "M" then num = num * 1e6
+                elseif suffix == "B" then num = num * 1e9
+                elseif suffix == "T" then num = num * 1e12 end
+                return num
+            end
+
+            local function isRaceTrackObject(obj)
+                local parent = obj.Parent
+                while parent do
+                    local nameLower = parent.Name:lower()
+                    if string.find(nameLower, "race") or string.find(nameLower, "track") or string.find(nameLower, "obstacle") then
+                        return true
+                    end
+                    parent = parent.Parent
+                end
+                local nameLower = obj.Name:lower()
+                return string.find(nameLower, "brainrot") or string.find(nameLower, "obstacle") or string.find(nameLower, "race") or string.find(nameLower, "track")
+            end
+
+            local function isInFuseMachine(obj)
+                local parent = obj.Parent
+                while parent do
+                    local nameLower = parent.Name:lower()
+                    if string.find(nameLower, "fuse") or string.find(nameLower, "infuse") or string.find(nameLower, "machine") then
+                        return true
+                    end
+                    parent = parent.Parent
+                end
+                return false
+            end
+
+            local function isInMyBase(obj, myPlot)
+                if not myPlot then return false end
+                
+                local currentParent = obj.Parent
+                while currentParent do
+                    if currentParent == myPlot then
+                        return true
+                    end
+                    currentParent = currentParent.Parent
+                end
+                return false
+            end
+
+            local function detectMutation(animalModel)
+                local textLabels = {}
+                
+                for _, gui in ipairs(animalModel:GetDescendants()) do
+                    if gui:IsA("TextLabel") then
+                        table.insert(textLabels, gui)
+                    end
+                end
+                
+                table.sort(textLabels, function(a, b)
+                    return a.Position.Y.Scale > b.Position.Y.Scale
+                end)
+                
+                local mutations = {
+                    "DIAMOND", "RAINBOW", "GALAXY", 
+                    "LAVA", "BLOODROT", "CANDY", "YIN YANG",
+                    "YING YANG", "YIN", "YANG", "YING"
+                }
+                
+                for _, label in ipairs(textLabels) do
+                    local text = label.Text
+                    if text then
+                        local textUpper = text:upper()
+                        for _, mutation in ipairs(mutations) do
+                            if textUpper == mutation then
+                                return mutation
+                            end
+                        end
+                        
+                        if string.find(textUpper, "YIN") or string.find(textUpper, "YANG") then
+                            return "YIN YANG"
+                        end
+                    end
+                end
+                
+                return "NORMAL"
+            end
+
+            local function findBestBrainrot_Billboards()
+                local best = { animalModel = nil, name = "", valueStr = "", valueNum = 0, mutation = "NORMAL" }
+                local myPlot = getMyPlot()
+                
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj.Name == "AnimalOverhead" and obj:IsA("BillboardGui") then
+                        local displayName = obj:FindFirstChild("DisplayName")
+                        local generation = obj:FindFirstChild("Generation")
+                        
+                        if displayName and generation then
+                            local animalModel = obj.Parent
+                            while animalModel and not animalModel:IsA("Model") do
+                                animalModel = animalModel.Parent
+                            end
+                            
+                            if animalModel and not isInMyBase(animalModel, myPlot) and not isInFuseMachine(animalModel) and not isRaceTrackObject(animalModel) then
+                                local valueNum = parseValue(generation.Text)
+                                if valueNum > best.valueNum then
+                                    best.valueNum = valueNum
+                                    best.valueStr = generation.Text
+                                    best.name = displayName.Text
+                                    best.animalModel = animalModel
+                                    best.mutation = detectMutation(animalModel)
+                                end
+                            end
+                        end
+                    end
+                end
+                return best
+            end
+
+            local function clearESP()
+                if _G.LastBrainrotESP and _G.LastBrainrotESP.Parent then
+                    _G.LastBrainrotESP:Destroy()
+                    _G.LastBrainrotESP = nil
+                end
+                if _G.LastBrainrotHighlight and _G.LastBrainrotHighlight.Parent then
+                    _G.LastBrainrotHighlight:Destroy()
+                    _G.LastBrainrotHighlight = nil
+                end
+            end
+
+            local function highlightAnimal(animalModel)
+                if _G.LastBrainrotHighlight and _G.LastBrainrotHighlight.Parent then
+                    _G.LastBrainrotHighlight:Destroy()
+                end
+                if animalModel then
+                    local highlight = Instance.new("Highlight")
+                    highlight.Name = "BrainrotHighlight"
+                    highlight.FillColor = Color3.fromRGB(255, 0, 255)
+                    highlight.FillTransparency = 0.6
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    highlight.OutlineTransparency = 0
+                    highlight.Adornee = animalModel
+                    highlight.Parent = animalModel
+                    _G.LastBrainrotHighlight = highlight
+                end
+            end
+
+            local function createESP(animalModel, name, value, mutation)
+                local rootPart = animalModel:FindFirstChild("HumanoidRootPart") or animalModel:FindFirstChild("Head") or animalModel:FindFirstChild("Torso") or animalModel:FindFirstChildWhichIsA("Part")
+                local adornee = rootPart or animalModel
+
+                local attachment = Instance.new("Attachment")
+                attachment.Name = "BrainrotESPAttachment"
+                attachment.Parent = adornee
+
+                local esp = Instance.new("BillboardGui")
+                esp.Name = "BrainrotESP"
+                esp.Size = UDim2.new(0, 400, 0, 120)
+                esp.Adornee = attachment
+                esp.AlwaysOnTop = true
+                esp.MaxDistance = 2000
+                esp.ExtentsOffset = Vector3.new(0, 5, 0)
+                esp.Parent = attachment
+
+                local container = Instance.new("Frame")
+                container.Size = UDim2.new(1, 0, 1, 0)
+                container.BackgroundTransparency = 1
+                container.Parent = esp
+
+                local mutationLabel = Instance.new("TextLabel")
+                mutationLabel.Size = UDim2.new(1, 0, 0.33, 0)
+                mutationLabel.Position = UDim2.new(0, 0, 0, 0)
+                mutationLabel.BackgroundTransparency = 1
+                mutationLabel.BorderSizePixel = 0
+                mutationLabel.TextStrokeTransparency = 0.2
+                mutationLabel.TextSize = 18
+                mutationLabel.Font = Enum.Font.GothamBold
+                mutationLabel.Text = mutation
+                mutationLabel.TextColor3 = Color3.new(1, 1, 1)
+                mutationLabel.TextWrapped = true
+                mutationLabel.Parent = container
+
+                local nameLabel = Instance.new("TextLabel")
+                nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                nameLabel.Position = UDim2.new(0, 0, 0.33, 0)
+                nameLabel.BackgroundTransparency = 1
+                nameLabel.BorderSizePixel = 0
+                nameLabel.TextStrokeTransparency = 0.2
+                nameLabel.TextSize = 32
+                nameLabel.Font = Enum.Font.GothamBold
+                nameLabel.Text = name
+                nameLabel.TextColor3 = Color3.new(1, 1, 0)
+                nameLabel.TextWrapped = true
+                nameLabel.Parent = container
+
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Size = UDim2.new(1, 0, 0.5, 0)
+                valueLabel.Position = UDim2.new(0, 0, 0.83, 0)
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.BorderSizePixel = 0
+                valueLabel.TextStrokeTransparency = 0.2
+                valueLabel.TextSize = 28
+                valueLabel.Font = Enum.Font.GothamBold
+                valueLabel.Text = value
+                valueLabel.TextColor3 = Color3.new(0, 1, 0)
+                valueLabel.TextWrapped = true
+                valueLabel.Parent = container
+
+                return esp, attachment
+            end
+
+            local function showBestBrainrotESP()
+                clearESP()
+                local best = findBestBrainrot_Billboards()
+                if best.name == "" or not best.animalModel then 
+                    return 
+                end
+                
+                highlightAnimal(best.animalModel)
+                _G.LastBrainrotESP, _G.LastBrainrotAttachment = createESP(best.animalModel, best.name, best.valueStr, best.mutation)
+                
+                print("Mutação: " .. best.mutation .. " | Nome: " .. best.name .. " | Valor: " .. best.valueStr)
+            end
+
+            if state then
+                _G.BrainrotEspLoop = task.spawn(function()
+                    while _G.IsBrainrotEspEnabled do
+                        pcall(showBestBrainrotESP)
+                        task.wait(3)
+                    end
+                end)
+            else
+                if _G.BrainrotEspLoop then
+                    task.cancel(_G.BrainrotEspLoop)
+                    _G.BrainrotEspLoop = nil
+                end
+                clearESP()
+            end
+        end
+    })
+
+    -- ESP Timer Base Corrigido
+    timerEspToggle = VisualTab:Toggle({
+        Title = "Esp Timer Base", 
+        Value = true, 
+        Callback = function(state)
+            _G.IsEspTimerBaseEnabled = state
+
+            if state then
+                local Players = game:GetService("Players")
+
+                local function CreateESP(basePlot)
+                    if basePlot:FindFirstChild("BaseTimerESP") then
+                        return basePlot:FindFirstChild("BaseTimerESP"):FindFirstChild("TextLabel"), basePlot:FindFirstChild("BaseTimerESP")
+                    end
+
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Size = UDim2.new(0, 200, 0, 50)
+                    billboard.AlwaysOnTop = true
+                    billboard.StudsOffset = Vector3.new(0, 5, 0)
+                    billboard.Name = "BaseTimerESP"
+
+                    local label = Instance.new("TextLabel", billboard)
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    label.TextStrokeTransparency = 0.2
+                    label.Font = Enum.Font.SourceSansBold
+                    label.TextScaled = true
+                    label.Text = "Carregando..."
+
+                    local part = basePlot:FindFirstChildWhichIsA("BasePart")
+                    if part then
+                        billboard.Parent = part
+                    end
+
+                    return label, billboard
+                end
+
+                local function FindRemainingTime(plot)
+                    for _, desc in pairs(plot:GetDescendants()) do
+                        if desc:IsA("TextLabel") and desc.Name == "RemainingTime" then
+                            return desc
+                        end
+                    end
+                end
+
+                _G.BaseEspElements = {}
+                for _, plot in pairs(workspace.Plots:GetChildren()) do
+                    local lbl, billboard = CreateESP(plot)
+                    _G.BaseEspElements[plot] = {Label = lbl, Billboard = billboard}
+                end
+
+                _G.BaseEspLoop = task.spawn(function()
+                    while _G.IsEspTimerBaseEnabled do
+                        task.wait(1)
+                        for plot, uiElements in pairs(_G.BaseEspElements) do
+                            if not plot or not plot.Parent or not uiElements.Label or not uiElements.Label.Parent then continue end
+                            
+                            local uiLabel = uiElements.Label
+                            local timer = FindRemainingTime(plot)
+
+                            if timer and timer.Text ~= "" then
+                                local num = tonumber(timer.Text:match("%d+"))
+                                if num and num > 0 then
+                                    uiLabel.Text = timer.Text
+                                    if num <= 10 then
+                                        uiLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                                    else
+                                        uiLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                    end
+                                else
+                                    uiLabel.Text = "Aberta"
+                                    uiLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                                end
+                            else
+                                uiLabel.Text = "Aberta"
+                                uiLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                            end
+                        end
+                    end
+                end)
+
+            else
+                if _G.BaseEspElements then
+                    for _, uiElements in pairs(_G.BaseEspElements) do
+                        if uiElements.Billboard and uiElements.Billboard.Parent then
+                            uiElements.Billboard:Destroy()
+                        end
+                    end
+                    _G.BaseEspElements = nil
+                end
+                if _G.BaseEspLoop then
+                    task.cancel(_G.BaseEspLoop)
+                    _G.BaseEspLoop = nil
+                end
+            end
+        end
+    })
+
+    -- ESP Owner Base
+    VisualTab:Toggle({
+        Title = "Esp Owner Base", 
+        Value = true, 
+        Callback = function(state)
+            _G.IsEspOwnerEnabled = state
+
+            if state then
+                local Players = game:GetService("Players")
+                local RunService = game:GetService("RunService")
+                local Workspace = game:GetService("Workspace")
+                local LocalPlayer = Players.LocalPlayer
+
+                _G.espObjects = {}
+
+                local function createESP(plot, ownerName)
+                    if _G.espObjects[plot] then
+                        _G.espObjects[plot]:Destroy()
+                    end
+                    
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "PlotESP"
+                    billboard.Size = UDim2.new(0, 400, 0, 60)
+                    billboard.StudsOffset = Vector3.new(0, 15, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Active = true
+                    billboard.ClipsDescendants = false
+                    billboard.MaxDistance = 5000
+                    billboard.Enabled = true
+                    
+                    local textLabel = Instance.new("TextLabel")
+                    textLabel.Size = UDim2.new(1, 0, 1, 0)
+                    textLabel.BackgroundTransparency = 1
+                    textLabel.Text = ownerName
+                    textLabel.TextColor3 = Color3.fromRGB(170, 0, 255)
+                    textLabel.TextStrokeTransparency = 0.3
+                    textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                    textLabel.TextSize = 20
+                    textLabel.Font = Enum.Font.GothamBold
+                    textLabel.TextWrapped = false
+                    textLabel.Parent = billboard
+                    
+                    billboard.Parent = Workspace
+                    
+                    local plotSign = plot:FindFirstChild("PlotSign")
+                    local plotPrimaryPart = plot:IsA("Model") and plot.PrimaryPart or plot:FindFirstChildWhichIsA("BasePart")
+                    
+                    if plotSign then
+                        billboard.Adornee = plotSign
+                    elseif plotPrimaryPart then
+                        billboard.Adornee = plotPrimaryPart
+                    else
+                        billboard.Adornee = plot
+                    end
+                    
+                    _G.espObjects[plot] = billboard
+                    return billboard
+                end
+
+                local function shouldIgnorePlot(plot)
+                    local plotSign = plot:FindFirstChild("PlotSign")
+                    if not plotSign then 
+                        return false
+                    end
+                    
+                    for _, child in pairs(plotSign:GetDescendants()) do
+                        if child:IsA("TextLabel") or child:IsA("TextButton") then
+                            local text = child.Text or ""
+                            if text ~= "" then
+                                if text == LocalPlayer.Name then
+                                    return true
+                                end
+                                
+                                if text:find(LocalPlayer.Name) then
+                                    return true
+                                end
+                                
+                                if text:find("'s Base") then
+                                    local ownerName = text:match("^(.+)'s Base$")
+                                    if ownerName and ownerName == LocalPlayer.Name then
+                                        return true
+                                    end
+                                end
+                                
+                                if text:find("de ") then
+                                    local ownerName = text:match("de%s+(.+)")
+                                    if ownerName and ownerName == LocalPlayer.Name then
+                                        return true
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
+                    return false
+                end
+
+                local function getPlotOwner(plot)
+                    if shouldIgnorePlot(plot) then
+                        return nil
+                    end
+                    
+                    local plotSign = plot:FindFirstChild("PlotSign")
+                    if not plotSign then 
+                        return "Sem Dono"
+                    end
+                    
+                    for _, child in pairs(plotSign:GetDescendants()) do
+                        if child:IsA("TextLabel") or child:IsA("TextButton") then
+                            local text = child.Text or ""
+                            if text ~= "" then
+                                if text:find("'s Base") then
+                                    local ownerName = text:match("^(.+)'s Base$")
+                                    if ownerName and ownerName ~= LocalPlayer.Name then
+                                        return ownerName
+                                    end
+                                end
+                                
+                                if text:find("Base de") then
+                                    local ownerName = text:match("Base de%s+(.+)")
+                                    if ownerName then
+                                        ownerName = ownerName:gsub("%*", ""):gsub("\n", " "):match("([%w_]+)")
+                                        if ownerName and ownerName ~= LocalPlayer.Name then
+                                            return ownerName
+                                        end
+                                    end
+                                end
+                                
+                                for _, player in ipairs(Players:GetPlayers()) do
+                                    if text == player.Name and player ~= LocalPlayer then
+                                        return player.Name
+                                    end
+                                end
+                                
+                                if text ~= "YOUR BASE" and text ~= "Sem Dono" and text ~= "Semi Dono" and not text:find("INHEIRO") and text ~= LocalPlayer.Name then
+                                    if text:find("'s Base") then
+                                        local ownerName = text:match("^(.+)'s Base$")
+                                        if ownerName and ownerName ~= LocalPlayer.Name then
+                                            return ownerName
+                                        end
+                                    end
+                                    return text
+                                end
+                            end
+                        end
+                    end
+                    
+                    return "Sem Dono"
+                end
+
+                local function updateESP()
+                    local plots = Workspace:FindFirstChild("Plots")
+                    if not plots then 
+                        return 
+                    end
+                    
+                    for _, plot in ipairs(plots:GetChildren()) do
+                        if plot:IsA("Model") or plot:IsA("Part") then
+                            local ownerName = getPlotOwner(plot)
+                            
+                            if ownerName and ownerName ~= "Sem Dono" then
+                                createESP(plot, ownerName)
+                            else
+                                if _G.espObjects[plot] then
+                                    _G.espObjects[plot]:Destroy()
+                                    _G.espObjects[plot] = nil
+                                end
+                            end
+                        end
+                    end
+                end
+
+                _G.EspOwnerLoop = task.spawn(function()
+                    while _G.IsEspOwnerEnabled do
+                        updateESP()
+                        task.wait(2)
+                    end
+                end)
+
+            else
+                if _G.espObjects then
+                    for plot, espObject in pairs(_G.espObjects) do
+                        if espObject and espObject.Parent then
+                            espObject:Destroy()
+                        end
+                    end
+                    _G.espObjects = nil
+                end
+                
+                if _G.EspOwnerLoop then
+                    task.cancel(_G.EspOwnerLoop)
+                    _G.EspOwnerLoop = nil
+                end
+            end
+        end
+    })
+end
+
+-- Tab Player
+local PlayerTab = Window:Tab({Title = "Player", Icon = "user"}) do
+    PlayerTab:Section({Title = "Jump Height"})
+
+    -- Sistema Jump Height
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local player = Players.LocalPlayer
+
+    local jumpHeight = 50
+    local enabled = false
+    local jumpConnection = nil
+
+    local function applySuperJump(character)
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChild("Humanoid")
+        
+        if rootPart and humanoid then
+            local currentVelocity = rootPart.Velocity
+            rootPart.Velocity = Vector3.new(
+                currentVelocity.X,
+                jumpHeight,
+                currentVelocity.Z
+            )
+        end
+    end
+
+    local function setupJumpListener(character)
+        if jumpConnection then
+            jumpConnection:Disconnect()
+            jumpConnection = nil
+        end
+        
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            jumpConnection = humanoid.Jumping:Connect(function()
+                if enabled then
+                    applySuperJump(character)
+                end
+            end)
+        end
+    end
+
+    local function safeReconnect()
+        if player.Character then
+            setupJumpListener(player.Character)
+        end
+    end
+
+    player.CharacterAdded:Connect(function(character)
+        wait(0.5)
+        setupJumpListener(character)
+        safeReconnect()
+    end)
+
+    local lastCheck = tick()
+    RunService.Heartbeat:Connect(function()
+        if tick() - lastCheck > 5 then
+            lastCheck = tick()
+            safeReconnect()
+        end
+    end)
+
+    wait(1)
+    if player.Character then
+        setupJumpListener(player.Character)
+    end
+
+    print("=== Jump Height Carregado ===")
+
+    local function cleanup()
+        enabled = false
+        if jumpConnection then
+            jumpConnection:Disconnect()
+        end
+    end
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.KeyCode == Enum.KeyCode.Delete or input.KeyCode == Enum.KeyCode.F10 then
+            cleanup()
+        end
+    end)
+
+    -- Jump Height Toggle
+    PlayerTab:Toggle({
+        Title = "Jump Height", 
+        Value = false,
+        Callback = function(state)
+            enabled = state
+            print("Jump Height " .. (state and "ATIVADO" or "DESATIVADO"))
+        end
+    })
+
+    -- Jump Height Slider
+    PlayerTab:Slider({
+        Title = "Altura do Pulo", 
+        Min = 10, 
+        Max = 90, 
+        Rounding = 0,
+        Value = 50,
+        Callback = function(value)
+            jumpHeight = value
+            print("Altura do pulo alterada para:", value)
+        end
+    })
+
+    PlayerTab:Section({Title = "Others"})
+
+    -- Float Base
+    floatToggle = PlayerTab:Toggle({
+        Title = "Float Base",
+        Value = true, 
+        Callback = function(state)
+            if state then
+                local url = "https://raw.githubusercontent.com/six999sx/Float-Base/refs/heads/main/Floatbase"
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet(url, true))()
+                end)
+                if not success then
+                    warn("Erro ao injetar a script Float Base:", err)
+                end
+            end
+        end
+    })
+
+-- Declarar as variáveis fora da função para manter o escopo
+local infiniteJumpEnabled = false
+local renderSteppedConnection = nil
+local characterAddedConnection = nil
+
+infiniteJumpToggle = PlayerTab:Toggle({
+    Title = "Infinite Jump",
+    Value = false, 
+    Callback = function(state)
+        local LocalPlayer = game:GetService("Players").LocalPlayer
+        local UserInputService = game:GetService("UserInputService")
+        local RunService = game:GetService("RunService")
+        
+        infiniteJumpEnabled = state
+        
+        if state then
+            local function enableInfiniteJump()
+                if renderSteppedConnection then
+                    renderSteppedConnection:Disconnect()
+                    renderSteppedConnection = nil
+                end
+
+                renderSteppedConnection = RunService.RenderStepped:Connect(function()
+                    local character = LocalPlayer.Character
+                    if not character then return end
+                    
+                    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                    local humanoid = character:FindFirstChildOfClass("Humanoid")
+                    
+                    if humanoidRootPart and humanoid and infiniteJumpEnabled then
+                        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                            humanoidRootPart.Velocity = Vector3.new(
+                                humanoidRootPart.Velocity.X,
+                                40,
+                                humanoidRootPart.Velocity.Z
+                            )
+                        end
+                    end
+                end)
+            end
+
+            if characterAddedConnection then
+                characterAddedConnection:Disconnect()
+            end
+            
+            characterAddedConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+                if infiniteJumpEnabled then
+                    wait(1)
+                    enableInfiniteJump()
+                end
+            end)
+
+            enableInfiniteJump()
+
+        else
+            -- Desativar Infinite Jump
+            infiniteJumpEnabled = false
+            
+            if renderSteppedConnection then
+                renderSteppedConnection:Disconnect()
+                renderSteppedConnection = nil
+            end
+            
+            if characterAddedConnection then
+                characterAddedConnection:Disconnect()
+                characterAddedConnection = nil
+            end
+        end
+    end
+})
+
+    -- Steal floor
+    PlayerTab:Toggle({
+        Title = "Steal floor",
+        Value = true,
+        Callback = function(state)
+            if state then
+                local url = "https://raw.githubusercontent.com/six999sx/3rd-flor/refs/heads/main/3rdflor"
+                
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet(url, true))()
+                end)
+                
+                if not success then
+                    warn("Erro ao injetar a script 3D Floor:", err)
+                end
+            end
+        end
+    })
+
+    -- Auto Pull
+    PlayerTab:Toggle({
+        Title = "Auto Pull",
+        Value = false,    
+        Callback = function(state)
+            local Players = game:GetService('Players')
+            local spammerVariables = {
+                visiblePrompts = {},
+                isSpammerActive = false,
+                spammerLoop = nil,
+                connections = {}
+            }
+
+            local function addVisiblePrompt(prompt)
+                if prompt and prompt:IsA('ProximityPrompt') then
+                    if not table.find(spammerVariables.visiblePrompts, prompt) then
+                        table.insert(spammerVariables.visiblePrompts, prompt)
+                    end
+                end
+            end
+
+            local function removeVisiblePrompt(prompt)
+                for i, p in ipairs(spammerVariables.visiblePrompts) do
+                    if p == prompt then
+                        table.remove(spammerVariables.visiblePrompts, i)
+                        break
+                    end
+                end
+            end
+
+            local function setupPromptEvents()
+                for _, connection in ipairs(spammerVariables.connections) do
+                    connection:Disconnect()
+                end
+                table.clear(spammerVariables.connections)
+                
+                for _, prompt in pairs(game:GetDescendants()) do
+                    if prompt:IsA('ProximityPrompt') then
+                        local conn1 = prompt.PromptShown:Connect(function()
+                            addVisiblePrompt(prompt)
+                        end)
+                        local conn2 = prompt.PromptHidden:Connect(function()
+                            removeVisiblePrompt(prompt)
+                        end)
+                        table.insert(spammerVariables.connections, conn1)
+                        table.insert(spammerVariables.connections, conn2)
+                    end
+                end
+
+                local descendantAddedConn = game.DescendantAdded:Connect(function(descendant)
+                    if descendant:IsA('ProximityPrompt') then
+                        local conn1 = descendant.PromptShown:Connect(function()
+                            addVisiblePrompt(descendant)
+                        end)
+                        local conn2 = descendant.PromptHidden:Connect(function()
+                            removeVisiblePrompt(descendant)
+                        end)
+                        table.insert(spammerVariables.connections, conn1)
+                        table.insert(spammerVariables.connections, conn2)
+                    end
+                end)
+                table.insert(spammerVariables.connections, descendantAddedConn)
+            end
+
+            local function triggerWithHold(prompt, holdTime)
+                holdTime = holdTime or 0.5
+                fireproximityprompt(prompt)
+                prompt:InputHoldBegin()
+                wait(holdTime)
+                prompt:InputHoldEnd()
+            end
+
+            local function startSpammer(interval)
+                interval = interval or 1
+                spammerVariables.spammerLoop = task.spawn(function()
+                    while spammerVariables.isSpammerActive do
+                        for _, prompt in ipairs(spammerVariables.visiblePrompts) do
+                            if prompt and prompt.Parent and spammerVariables.isSpammerActive then
+                                triggerWithHold(prompt, 0.5)
+                            end
+                        end
+                        task.wait(interval)
+                    end
+                end)
+            end
+
+            local function stopSpammer()
+                spammerVariables.isSpammerActive = false
+                if spammerVariables.spammerLoop then
+                    task.cancel(spammerVariables.spammerLoop)
+                    spammerVariables.spammerLoop = nil
+                end
+                
+                for _, connection in ipairs(spammerVariables.connections) do
+                    connection:Disconnect()
+                end
+                table.clear(spammerVariables.connections)
+                
+                table.clear(spammerVariables.visiblePrompts)
+            end
+
+            if state then
+                spammerVariables.isSpammerActive = true
+                setupPromptEvents()
+                startSpammer(1)
+            else
+                stopSpammer()
+            end
+        end
+    })
+end
+
+-- Tab Servidor
+local ServidorTab = Window:Tab({Title = "Servidor", Icon = "cloud"}) do
+    ServidorTab:Section({Title = "Job ID"})
+
+    local TeleportService = game:GetService("TeleportService")
+    local currentJobId = ""
+
+    -- Input para Job ID
+    ServidorTab:Textbox({
+        Title = "Job Id",
+        Desc = "Cole o Job ID aqui e pressione ENTER",
+        Placeholder = "Cole o Job ID aqui",
+        Value = "",
+        ClearTextOnFocus = false,
+        Callback = function(text)
+            print("Input text:", text)
+            currentJobId = text
+            
+            local jobId = string.gsub(text, "%s+", "")
+            
+            if jobId == "" then
+                Window:Notify({
+                    Title = "Erro", 
+                    Desc = "Digite um Job ID",
+                    Time = 3
+                })
+                return
+            end
+            
+            local isValid = false
+            
+            if string.match(jobId, "^[a-fA-F0-9%-]+$") and #jobId >= 32 then
+                isValid = true
+            elseif tonumber(jobId) then
+                isValid = true
+            end
+            
+            if isValid then
+                Window:Notify({
+                    Title = "Teleportando", 
+                    Desc = "Job ID: " .. jobId,
+                    Time = 3
+                })
+                
+                local success, result = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, game.Players.LocalPlayer)
+                end)
+                
+                if not success then
+                    Window:Notify({
+                        Title = "Erro", 
+                        Desc = "Falha no teleporte: " .. tostring(result),
+                        Time = 3
+                    })
+                end
+            else
+                Window:Notify({
+                    Title = "Erro", 
+                    Desc = "Job ID inválido",
+                    Time = 3
+                })
+            end
+        end
+    })
+
+    -- Botão de Teleporte
+    ServidorTab:Button({
+        Title = "Teleportar via Job ID", 
+        Desc = "Usa o Job ID do campo acima",
+        Callback = function()
+            if currentJobId == "" then
+                Window:Notify({
+                    Title = "Erro", 
+                    Desc = "Cole um Job ID no campo acima primeiro!",
+                    Time = 3
+                })
+                return
+            end
+            
+            local jobId = string.gsub(currentJobId, "%s+", "")
+            
+            local isValid = false
+            if string.match(jobId, "^[a-fA-F0-9%-]+$") and #jobId >= 32 then
+                isValid = true
+            elseif tonumber(jobId) then
+                isValid = true
+            end
+            
+            if isValid then
+                Window:Notify({
+                    Title = "Teleportando", 
+                    Desc = "Usando Job ID: " .. jobId,
+                    Time = 3
+                })
+                
+                local success, result = pcall(function()
+                    TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, game.Players.LocalPlayer)
+                end)
+                
+                if not success then
+                    Window:Notify({
+                        Title = "Erro", 
+                        Desc = "Falha no teleporte: " .. tostring(result),
+                        Time = 3
+                    })
+                end
+            else
+                Window:Notify({
+                    Title = "Erro", 
+                    Desc = "Job ID inválido no campo",
+                    Time = 3
+                })
+            end
+        end
+    })
+
+    ServidorTab:Section({Title = "Servidor"})
+
+    ServidorTab:Toggle({
+        Title = "Auto Kick", 
+        Callback = function(state)
+            -- Adicione a funcionalidade do Auto Kick aqui
+        end
+    })
+
+ServidorTab:Toggle({
+    Title = "Auto Hop", 
+    Callback = function(state)
+        if state then
+            print("[Auto Hop] Iniciando teleporte em 2 segundos...")
+            
+            -- Espera 2 segundos
+            wait(2)
+            
+            if state then -- Verifica se ainda está ativo
+                local TeleportService = game:GetService("TeleportService")
+                local HttpService = game:GetService("HttpService")
+                local placeId = game.PlaceId
+                local currentJobId = game.JobId
+                
+                print("[Auto Hop] Procurando servidor...")
+                
+                -- Função para encontrar servidores
+                local function findServer()
+                    local servers = {}
+                    local success, result = pcall(function()
+                        return HttpService:GetAsync("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100")
+                    end)
+                    
+                    if success and result then
+                        local data = HttpService:JSONDecode(result)
+                        
+                        for _, server in ipairs(data.data) do
+                            -- Verifica se não é o mesmo servidor e tem espaço
+                            if server.id ~= currentJobId and server.playing < server.maxPlayers then
+                                table.insert(servers, server)
+                            end
+                        end
+                    end
+                    
+                    return servers
+                end
+                
+                -- Tenta encontrar servidores
+                local servers = findServer()
+                
+                if #servers > 0 then
+                    -- Escolhe um servidor aleatório
+                    local randomServer = servers[math.random(1, #servers)]
+                    print("[Auto Hop] Teleportando para: " .. randomServer.id)
+                    
+                    -- Teleporta usando o método correto
+                    local success, errorMsg = pcall(function()
+                        TeleportService:TeleportToPlaceInstance(placeId, randomServer.id)
+                    end)
+                    
+                    if not success then
+                        print("[Auto Hop] Erro no teleporte: " .. tostring(errorMsg))
+                        -- Tenta método alternativo
+                        pcall(function()
+                            TeleportService:Teleport(placeId)
+                        end)
+                    end
+                else
+                    print("[Auto Hop] Nenhum servidor encontrado, usando teleporte normal")
+                    pcall(function()
+                        TeleportService:Teleport(placeId)
+                    end)
+                end
+            end
+        else
+            print("[Auto Hop] Cancelado")
+        end
+    end
+})
+
+    ServidorTab:Toggle({
+        Title = "Anti AFK", 
+        Callback = function(state)
+            -- Adicione a funcionalidade do Anti AFK aqui
+        end
+    })
+
+    -- Anti Bee
+    antiBeeToggle = ServidorTab:Toggle({
+        Title = "Anti Bee",
+        Value = true, 
+        Callback = function(state)
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local Lighting = game:GetService("Lighting")
+            local player = Players.LocalPlayer
+            local camera = workspace.CurrentCamera
+
+            local effectsRemoved = false
+            local originalFOV = camera.FieldOfView
+            local connections = {}
+
+            local function removeAllEffects()
+                if effectsRemoved then return end
+                effectsRemoved = true
+
+                originalFOV = camera.FieldOfView
+
+                for _, effect in pairs(Lighting:GetChildren()) do
+                    if effect:IsA("ColorCorrectionEffect") or 
+                       effect:IsA("BloomEffect") or 
+                       effect:IsA("BlurEffect") then
+                        effect.Enabled = false
+                    end
+                end
+
+                local mainConnection
+                mainConnection = RunService.Heartbeat:Connect(function()
+                    if not effectsRemoved then 
+                        mainConnection:Disconnect()
+                        return 
+                    end
+                    
+                    camera.FieldOfView = originalFOV
+
+                    for _, effect in pairs(Lighting:GetChildren()) do
+                        if effect:IsA("BlurEffect") or effect:IsA("ColorCorrectionEffect") then
+                            effect.Enabled = false
+                            if effect:IsA("BlurEffect") then
+                                effect.Size = 0
+                            end
+                        end
+                    end
+                end)
+
+                table.insert(connections, mainConnection)
+
+                local lightingConnection = Lighting.ChildAdded:Connect(function(child)
+                    if effectsRemoved then
+                        if child:IsA("BlurEffect") or 
+                           child:IsA("ColorCorrectionEffect") or 
+                           child:IsA("BloomEffect") then
+                            child.Enabled = false
+                            if child:IsA("BlurEffect") then
+                                child.Size = 0
+                            end
+                        end
+                    end
+                end)
+
+                table.insert(connections, lightingConnection)
+
+                for _, gui in pairs(player.PlayerGui:GetChildren()) do
+                    if gui:IsA("ScreenGui") then
+                        local name = string.lower(gui.Name)
+                        if name:find("effect") or name:find("overlay") or name:find("filter") or name:find("blur") then
+                            gui.Enabled = false
+                        end
+                    end
+                end
+
+                local guiConnection = player.PlayerGui.ChildAdded:Connect(function(child)
+                    if effectsRemoved and child:IsA("ScreenGui") then
+                        local name = string.lower(child.Name)
+                        if name:find("effect") or name:find("overlay") or name:find("filter") or name:find("blur") then
+                            child.Enabled = false
+                        end
+                    end
+                end)
+
+                table.insert(connections, guiConnection)
+            end
+
+            if state then
+                removeAllEffects()
+            else
+                effectsRemoved = false
+                for _, conn in ipairs(connections) do
+                    conn:Disconnect()
+                end
+                table.clear(connections)
+            end
+        end
+    })
+
+    -- Anti Lag
+    antiLagToggle = ServidorTab:Toggle({
+        Title = "Anti Lag", 
+        Value = true,
+        Callback = function(value)
+            local isEnabled = value
+
+            local function removeSkinsFromCharacter(character)
+                pcall(function()
+                    for _, item in ipairs(character:GetChildren()) do
+                        if item:IsA("Accessory") or item:IsA("Shirt") or item:IsA("Pants") or item:IsA("ShirtGraphic") then
+                            item:Destroy()
+                        end
+                    end
+                    
+                    local humanoid = character:FindFirstChild("Humanoid")
+                    if humanoid then
+                        for _, bodyPart in ipairs(character:GetChildren()) do
+                            if bodyPart:IsA("BasePart") then
+                                bodyPart.Material = Enum.Material.SmoothPlastic
+                                bodyPart.BrickColor = BrickColor.new("Medium stone grey")
+                                
+                                for _, decal in ipairs(bodyPart:GetChildren()) do
+                                    if decal:IsA("Decal") then
+                                        decal:Destroy()
+                                    end
+                                end
+                            end
+                        end
+                        
+                        local head = character:FindFirstChild("Head")
+                        if head then
+                            for _, item in ipairs(head:GetChildren()) do
+                                if item:IsA("SpecialMesh") or item:IsA("MeshPart") then
+                                    item:Destroy()
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+
+            local function startSkinRemoval()
+                if _G.skinRemovalLoop then 
+                    _G.skinRemovalLoop:Disconnect()
+                end
+                
+                if game.Players.LocalPlayer.Character then
+                    removeSkinsFromCharacter(game.Players.LocalPlayer.Character)
+                end
+                
+                for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+                    if otherPlayer.Character then
+                        removeSkinsFromCharacter(otherPlayer.Character)
+                    end
+                end
+                
+                _G.skinRemovalLoop = game:GetService("RunService").Heartbeat:Connect(function()
+                    for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+                        if otherPlayer.Character and otherPlayer.Character:FindFirstChild("Humanoid") then
+                            removeSkinsFromCharacter(otherPlayer.Character)
+                        end
+                    end
+                    
+                    for _, model in ipairs(workspace:GetChildren()) do
+                        if model:IsA("Model") and model:FindFirstChild("Humanoid") then
+                            local isPlayerCharacter = false
+                            for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+                                if otherPlayer.Character == model then
+                                    isPlayerCharacter = true
+                                    break
+                                end
+                            end
+                            
+                            if not isPlayerCharacter then
+                                removeSkinsFromCharacter(model)
+                            end
+                        end
+                    end
+                end)
+            end
+
+            local function stopSkinRemoval()
+                if _G.skinRemovalLoop then
+                    _G.skinRemovalLoop:Disconnect()
+                    _G.skinRemovalLoop = nil
+                end
+                
+                if _G.playerAddedConnection then
+                    _G.playerAddedConnection:Disconnect()
+                    _G.playerAddedConnection = nil
+                end
+                
+                if _G.characterAddedConnection then
+                    _G.characterAddedConnection:Disconnect()
+                    _G.characterAddedConnection = nil
+                end
+            end
+
+            if value then
+                _G.playerAddedConnection = game.Players.PlayerAdded:Connect(function(otherPlayer)
+                    _G.characterAddedConnection = otherPlayer.CharacterAdded:Connect(function(character)
+                        task.wait(1)
+                        removeSkinsFromCharacter(character)
+                    end)
+                end)
+
+                for _, otherPlayer in ipairs(game.Players:GetPlayers()) do
+                    if otherPlayer.Character then
+                        removeSkinsFromCharacter(otherPlayer.Character)
+                    end
+                end
+
+                _G.localPlayerConnection = game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+                    task.wait(2)
+                    removeSkinsFromCharacter(character)
+                end)
+
+                startSkinRemoval()
+
+            else
+                stopSkinRemoval()
+            end
+        end
+    })
+end
