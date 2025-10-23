@@ -323,7 +323,7 @@ local MainTab = Window:Tab({Title = "Main", Icon = "house"}) do
         Value = true,
         Callback = function(state)
             if state then
-                local url = "https://raw.githubusercontent.com/six999sx/six9fpsss/refs/heads/main/Nxreducefps.lua"
+                local url = "https://raw.githubusercontent.com/vinimodsvx/FpsDevour/refs/heads/main/FpsDevour"
                 local success, err = pcall(function()
                     loadstring(game:HttpGet(url, true))()
                 end)
